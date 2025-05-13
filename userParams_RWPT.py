@@ -2,6 +2,13 @@
 # these are separated for the sake of keeping all the things a user touches
 # in a single place
 class ParamsIn(object):
+  from enum import Enum
+
+  class IC_Case(Enum):
+      Point = 1
+      Gaussian = 2
+      Uniform = 3
+
   def __init__(self):
     # total (max) number of particles
     self.N = int(5e2)
@@ -17,9 +24,9 @@ class ParamsIn(object):
     # initial mean velocity
     # TODO: for now, isotropic, but can make this more interesting
     self.mean_v0 = [-1, 2]
-    # initial position of tracer particles
-    # TODO: for now, stationary, but can make this more interesting
-    self.initial_pos = 0
+    self.sigma_v0 = [1, 1]
+
+    self.initial_condition_vel = self.IC_Case.Point
 
     # # tuning parameter [-] (from Pope Sec. 12.4 {p. 504})
     # C_0 = 2.1
@@ -35,5 +42,7 @@ class ParamsIn(object):
     # particles enter the domain 'emit_num' at a time, for each of the first
     # 'emit_steps' time steps
     self.emit_steps = 25
+    # initial location for emitter
+    self.emitterX0 = [0, 0]
     # velocity of the tracer emitter (e.g., ship)
     self.emitterVel = [3, 3]

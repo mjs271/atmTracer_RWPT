@@ -1,10 +1,12 @@
 import pytest
 import numpy as np
+import RWPT_params as PTp
 import RWPT_fxns as PTfxn
+import particles as PT
 
 
 def test_calc_steps():
-  params = PTfxn.get_params()
+  params = PTp.InputParams()
   nSteps = params.calc_steps(params.maxT, params.saveInterval, params.dt)
   for i in range(nSteps.nSaveSteps):
     finalStep = i * params.saveInterval
@@ -71,6 +73,8 @@ def urand_inBounds(bbox):
 
 
 def test_periodic_BC():
+  params = PTp.InputParams()
+
   up_del1 = [0, 0.42]
   up_del2 = [0, 0.68]
   up_del3 = [0, 7.37]
@@ -113,85 +117,128 @@ def test_periodic_BC():
                          urand_inBounds(otmp),
                          tVec1, tVec2))
     for j in range(3):
-      otst = otmp[:, 0:j + 1]
-      resultVec = PTfxn.apply_BC(testVec[:, 0:j + 1], otst, j + 1)
+      params.Omega = otmp[:, 0:j + 1]
+      params.dim = j + 1
+      resultVec = PTfxn.apply_BC(testVec[:, 0:j + 1], params)
       for k in range(j):
         msg1 = 'BC incorrectly applied--lower bound incorrect. ' \
                f'current dim = {k}, result = {resultVec[:, k]}, ' \
-               f'test val = {otst[0, k]}'
-        assert not np.any(resultVec[:, k] < otst[0, k]), msg1
+               f'test val = {params.Omega[0, k]}'
+        assert not np.any(resultVec[:, k] < params.Omega[0, k]), msg1
         msg2 = 'BC incorrectly applied--upper bound incorrect. ' \
                f'current dim = {k}, result = {resultVec[:, k]}, ' \
-               f'test val = {otst[1, k]}'
-        assert not np.any(resultVec[:, k] > otst[1, k]), msg2
+               f'test val = {params.Omega[1, k]}'
+        assert not np.any(resultVec[:, k] > params.Omega[1, k]), msg2
 
 
 def test_interval_save():
-  params = PTfxn.get_params()
-  velVec = np.random.random((10, 2))
-  ans = velVec
-  testVec = np.zeros((10, 2, 5 * params.saveInterval))
+  p = PT.Particles()
+  params = p.params
+
+  p.velVec = np.random.random((10, 2))
+  p.XVec = np.random.random((10, 2))
+  ansV = p.velVec
+  ansX = p.XVec
+  p.tSeries_X = np.zeros((10, 2, 5))
+  p.tSeries_vel = np.zeros((10, 2, 5))
 
   # First, test with the object-provided `saveInterval`
   if params.saveInterval <= 1:
     return
   else:
     # write to entry 0
-    testVec = PTfxn.interval_save(velVec, 0, testVec)
-    assert (testVec[:, :, 0] == ans).all()
+    step = 0
+    p.write_data(step)
+    assert (p.tSeries_X[:, :, step] == ansX).all()
+    assert (p.tSeries_vel[:, :, step] == ansV).all()
     # write to index 2
-    i = 2 * params.saveInterval
-    testVec = PTfxn.interval_save(velVec, i, testVec)
-    assert (testVec[:, :, 2] == ans).all()
+    smult = 2
+    step = smult * params.saveInterval
+    p.write_data(step)
+    assert (p.tSeries_X[:, :, smult] == ansX).all()
+    assert (p.tSeries_vel[:, :, smult] == ansV).all()
     # call for value that won't write
-    i = 4 * params.saveInterval - 1
-    testVec = PTfxn.interval_save(velVec, i, testVec)
-    assert (testVec[:, :, 0] == ans).all()
-    assert (testVec[:, :, 1] == 0).all()
-    assert (testVec[:, :, 2] == ans).all()
-    assert (testVec[:, :, 3] == 0).all()
-    assert (testVec[:, :, 4] == 0).all()
+    # i = 4 * params.saveInterval - 1
+    smult = 4
+    step = smult * params.saveInterval - 1
+    p.write_data(step)
+    assert (p.tSeries_X[:, :, 0] == ansX).all()
+    assert (p.tSeries_X[:, :, 1] == 0).all()
+    assert (p.tSeries_X[:, :, 2] == ansX).all()
+    assert (p.tSeries_X[:, :, 3] == 0).all()
+    assert (p.tSeries_X[:, :, 4] == 0).all()
+    assert (p.tSeries_vel[:, :, 0] == ansV).all()
+    assert (p.tSeries_vel[:, :, 1] == 0).all()
+    assert (p.tSeries_vel[:, :, 2] == ansV).all()
+    assert (p.tSeries_vel[:, :, 3] == 0).all()
+    assert (p.tSeries_vel[:, :, 4] == 0).all()
 
-  testVec = np.zeros((10, 2, 3))
+  q = PT.Particles()
+  params = q.params
+
+  q.velVec = np.random.random((10, 2))
+  q.XVec = np.random.random((10, 2))
+  ansV = q.velVec
+  ansX = q.XVec
+  q.tSeries_X = np.zeros((10, 2, 3))
+  q.tSeries_vel = np.zeros((10, 2, 3))
+
   # Now test for a user-provided `saveInterval`
   # write to entry 0
-  testVec = PTfxn.interval_save(velVec, 0, testVec, interval=42)
-  assert (testVec[:, :, 0] == ans).all()
+  params.saveInterval = 42
+  step = 0
+  q.write_data(step)
+  assert (q.tSeries_X[:, :, 0] == ansX).all()
+  assert (q.tSeries_vel[:, :, 0] == ansV).all()
   # write to entry 1
-  testVec = PTfxn.interval_save(velVec, 42, testVec, interval=42)
-  assert (testVec[:, :, 1] == ans).all()
+  step = 42
+  q.write_data(step)
+  assert (q.tSeries_X[:, :, 1] == ansX).all()
+  assert (q.tSeries_vel[:, :, 1] == ansV).all()
   # no write
-  testVec = PTfxn.interval_save(velVec, 21, testVec, interval=42)
-  assert (testVec[:, :, 0] == ans).all()
-  assert (testVec[:, :, 1] == ans).all()
-  assert (testVec[:, :, 2] == 0).all()
+  step = 21
+  q.write_data(step)
+  assert (q.tSeries_X[:, :, 0] == ansX).all()
+  assert (q.tSeries_X[:, :, 1] == ansX).all()
+  assert (q.tSeries_X[:, :, 2] == 0).all()
+  assert (q.tSeries_vel[:, :, 0] == ansV).all()
+  assert (q.tSeries_vel[:, :, 1] == ansV).all()
+  assert (q.tSeries_vel[:, :, 2] == 0).all()
+
+  # now make sure that things are working properly when N_current < N_total
+  pq = PT.Particles()
+  assert (pq.tSeries_X == 0).all()
+  for nn in range(pq.N_current):
+    for d in range(pq.params.dim):
+      pq.XVec[nn, d] = np.random.rand()
+  step = 0
+  pq.write_data(step)
+  assert (pq.tSeries_X[0:pq.N_current, :, step] != 0).all()
+  assert (pq.tSeries_X[pq.N_current:, :, step] == 0).all()
+
+
+def test_initX():
+  params = PTp.InputParams()
+
+  print(params.initial_pos)
+  print(params.initial_pos[0] == 0)
+  print(params.initial_pos[1] == 0)
+  print(np.all(params.initial_pos == 0))
+  assert (np.all(params.initial_pos == 0))
+  testX = PTfxn.init_X(params)
+  print(f'Input Initial X position = {params.initial_pos}')
+  assert (np.all(testX == 0))
 
 
 # TODO: test convergence rate?
 def test_advect_tracer():
+  params = PTp.InputParams()
+
   X0 = [[0, 0],
         [1, 1]]
   vel = [0, 1] * np.ones(np.shape(X0))
-  ans = [[0, 1],
-         [1, 2]]
-  testX = PTfxn.advect_tracer(X0, vel, 1)
-  assert (testX == ans).all()
-
-  X0 = np.array([[0, 0], [1, 1]])
-  vel = np.array([[-1, 0.8], [3, -2.4]])
-  ans = [[-0.5, 0.4],
-         [2.5, -0.2]]
-  testX = PTfxn.advect_tracer(X0, vel, 0.5)
-  assert (testX - ans < 1e-12).all()
-
-
-# NOTE: slightly vacuous, given that the function is the same as above,
-# but that may not always be the case.
-def test_move_emitter():
-  X0 = [[0, 0],
-        [1, 1]]
-  vel = [0, 1] * np.ones(np.shape(X0))
-  testX = PTfxn.move_emitter(X0, vel, 1)
+  params.dt = 1
+  testX = PTfxn.advect_tracer(X0, vel, params)
   assert (testX == [[0, 1],
                     [1, 2]]).all()
 
@@ -199,5 +246,128 @@ def test_move_emitter():
   vel = np.array([[-1, 0.8], [3, -2.4]])
   ans = [[-0.5, 0.4],
          [2.5, -0.2]]
-  testX = PTfxn.move_emitter(X0, vel, 0.5)
+  params.dt = 0.5
+  testX = PTfxn.advect_tracer(X0, vel, params)
   assert (testX - ans < 1e-12).all()
+
+
+# NOTE: slightly vacuous, given that the function is the same as above,
+# but that may not always be the case.
+def test_move_emitter():
+  params = PTp.InputParams()
+
+  X0 = [[0, 0],
+        [1, 1]]
+  vel = [0, 1] * np.ones(np.shape(X0))
+  params.dt = 1
+  params.emitterVel = vel
+  testX = PTfxn.move_emitter(X0, params)
+  assert (testX == [[0, 1],
+                    [1, 2]]).all()
+
+  X0 = np.array([[0, 0], [1, 1]])
+  vel = np.array([[-1, 0.8], [3, -2.4]])
+  ans = [[-0.5, 0.4],
+         [2.5, -0.2]]
+  params.dt = 0.5
+  params.emitterVel = vel
+  testX = PTfxn.move_emitter(X0, params)
+  assert (testX - ans < 1e-12).all()
+
+
+def test_enum_test():
+  params = PTp.InputParams()
+  assert params.vel_IC == params.IC_Case.Point or \
+                          params.IC_Case.Gaussian or \
+                          params.IC_Case.Uniform
+
+
+def test_update_particles():
+  p = PT.Particles()
+  xnow = p.get_xNow()
+  assert (xnow == 0).all()
+
+  p.update_quantities_emit()
+  xnow = p.get_xNow()
+  # assert (p.N_current == (2 * p.emitNum))
+  assert (not np.all(p.get_xNow() == 1))
+
+  p.update_quantities()
+  # NOTE: this should almost surely be true...
+  #       but hitting the lottery is always *possible*
+  assert (np.all(p.XVec != 0))
+
+
+# # FIXME: incorporate the old test_interval_save()
+# def test_write_data():
+#   pq = PT.Particles()
+#   assert (pq.tSeries_X == 0).all()
+#   for nn in range(pq.N_current):
+#     for d in range(pq.params.dim):
+#       pq.XVec[nn, d] = np.random.rand()
+#   step = 0
+#   pq.write_data(step)
+#   assert (pq.tSeries_X[0:pq.N_current, :, step] != 0).all()
+#   assert (pq.tSeries_X[pq.N_current:, :, step] == 0).all()
+
+
+def check_X_update(p, N_prev):
+  randices = np.random.randint(N_prev, p.N_total, (20, 1))
+  nz_vel = p.emitterVel != 0
+  if np.all(nz_vel):
+    for r in randices:
+      assert (p.XVec[r, :] != 0).all()
+  elif np.any(nz_vel):
+    for d in p.params.dim:
+      if nz_vel[d]:
+        for r in randices:
+          assert (p.XVec[r, d] != 0).all()
+      else:
+        for r in randices:
+          assert (p.XVec[r, d] == 0).all()
+  else:
+    for r in randices:
+      assert (p.XVec[r, :] == 0).all()
+
+
+def test_particle_step():
+  p = PT.Particles()
+
+  assert (p.N_current == p.emitNum)
+  step = 0
+  p.particle_step_emit(step)
+  assert (p.N_current == (2 * p.emitNum))
+  N_prev = p.N_current - p.emitNum
+  assert (p.tSeries_X[0:N_prev, :, step] != 0).all()
+  # first check default from userParams
+  check_X_update(p, N_prev)
+
+  # now check for other choices
+  largeNeg = np.random.uniform(-7, -2.1)
+  smallNeg = np.random.uniform(-2, 0)
+  smallPos = np.random.uniform(0, 3)
+  largePos = np.random.uniform(3.1, 11)
+  vels = [[largeNeg, smallNeg],
+          [smallNeg, smallPos],
+          [smallPos, largePos],
+          [largeNeg, largePos],
+          [smallNeg, largeNeg],
+          [smallPos, smallNeg],
+          [largePos, smallPos],
+          [largePos, largeNeg],
+          [largeNeg, 0],
+          [smallNeg, 0],
+          [smallPos, 0],
+          [largePos, 0],
+          [0, largeNeg],
+          [0, smallNeg],
+          [0, smallPos],
+          [0, largePos],
+          [0, 0]]
+  for v in vels:
+    q = PT.Particles()
+    q.emitterVel = v
+    print(f'v = {v}')
+    q.particle_step_emit(step)
+    N_prev = q.N_current - q.emitNum
+    check_X_update(q, N_prev)

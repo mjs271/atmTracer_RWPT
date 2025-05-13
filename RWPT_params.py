@@ -1,12 +1,15 @@
 import numpy as np
 from typing import NamedTuple
+import userParams_RWPT as UserP
+
+input_default = UserP.ParamsIn()
 
 
 # this class holds all parameters that may be needed by the model during
 # initialization or simulation time
 # they are defined or calculated using values from the `ParamsIn` object
 class InputParams(object):
-  def __init__(self, input):
+  def __init__(self, input=input_default):
     # total (max) number of particles
     self.N = input.N
     # time step length [s]
@@ -34,6 +37,7 @@ class InputParams(object):
     self.nSaveSteps = stepsCalc.nSaveSteps
     # the shape of the array we will save the velocity or position data
     self.shapeSave = (self.N, self.dim, self.nSaveSteps)
+    # self.NP_frame = np.zeros(self.nSaveSteps)
 
     self.emitNum = int(np.ceil(self.N / self.emit_steps))
 
@@ -41,21 +45,25 @@ class InputParams(object):
     self.maxL_omega = input.maxL_omega
     self.Omega = np.zeros((2, self.dim))
     for i in range(self.dim):
-      self.Omega[1, :] = self.maxL_omega
+      self.Omega[1, i] = self.maxL_omega
 
     # (initial) velocity statistics
     # mean velocities [m/s]
-    mean_v0 = input.mean_v0 * np.ones(self.shapeA)
-    self.mean_vel = mean_v0
+    self.mean_v0 = input.mean_v0
+    self.mean_vel = self.mean_v0 * np.ones(self.shapeA)
     # average boundary-layer zonal wind variances [m^2/s^2]
-    self.sigma_vel = np.ones(self.shapeA)
-    self.v0 = self.init_velocity(self.mean_vel,
-                                 self.sigma_vel,
-                                 self.shapeA)
+    self.sigma_vel = input.sigma_v0 * np.ones(self.shapeA)
+    self.vel_IC = input.initial_condition_vel
+    self.IC_Case = input.IC_Case
+    # self.v0 = self.init_velocity(self.mean_vel,
+    #                              self.sigma_vel,
+    #                              self.vel_IC,
+    #                              self.shapeA)
 
-    # for now, just start them all at the origin
-    initial_pos = input.initial_pos * np.ones(self.dim)
-    self.X0 = self.init_X(self.shapeA, initial_pos)
+    # packets get emitted from the emitter location, so use initial value
+    self.initial_pos = np.array(input.emitterX0)
+    # self.X0 = self.init_X(self.shapeA, initial_pos)
+    # self.X0 = input.emitterX0
 
     self.invTL = 1 / input.TL_0
 
@@ -82,14 +90,17 @@ class InputParams(object):
       nSteps.tSteps += (saveInterval - rem)
     return nSteps
 
-  # NOTE: the initial velocity needs to be divergence-free, but for now, we
-  # randomly scatter according to the distribution of initial velocity
-  def init_velocity(self, mean_v0, sigma_vel, shapeA):
-    velVec = np.random.normal(mean_v0, sigma_vel, shapeA)
-    return velVec
+  # # NOTE: the initial velocity needs to be divergence-free, but for now, we
+  # # randomly scatter according to the distribution of initial velocity
+  # def init_velocity(self, mean_v0, sigma_vel, vel_IC, shapeA):
+  #   if vel_IC is self.IC_Case.Point:
+  #     velVec = mean_v0 * np.ones(shapeA)
+  #   elif vel_IC is self.IC_Case.Gaussian:
+  #     velVec = np.random.normal(mean_v0, sigma_vel, shapeA)
+  #   return velVec
 
-  def init_X(self, shapeX, initial_pos):
-    X0 = np.ndarray(shapeX)
-    for p in range(shapeX[0]):
-      X0[p, :] = initial_pos
-    return X0
+  # def init_X(self, shapeX, initial_pos):
+  #   X0 = np.ndarray(shapeX)
+  #   for p in range(shapeX[0]):
+  #     X0[p, :] = initial_pos
+  #   return X0
