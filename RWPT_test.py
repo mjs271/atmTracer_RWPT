@@ -278,8 +278,8 @@ def test_move_emitter():
 def test_enum_test():
   params = PTp.InputParams()
   assert params.vel_IC == params.IC_Case.Point or \
-                          params.IC_Case.Gaussian or \
-                          params.IC_Case.Uniform
+         params.vel_IC == params.IC_Case.Gaussian or \
+         params.vel_IC == params.IC_Case.Uniform
 
 
 def test_update_particles():

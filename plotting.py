@@ -9,7 +9,6 @@ from matplotlib.colors import LightSource as ls
 #     "font.serif": ["Computer Modern Roman"]})
 
 import gif
-# import matplotlib.animation as animation
 
 import os
 import numpy as np
